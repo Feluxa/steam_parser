@@ -9,7 +9,7 @@ from urllib.parse import quote
 import aiohttp
 from utils.app_id import SteamGame, choose_game
 
-# В разделе Sources есть такая хуйня у киловат кейсика: 
+# В разделе Sources есть такая хуйня у киловат кейсика: 11
 '''
 
                         $J(document).ready(function() {
