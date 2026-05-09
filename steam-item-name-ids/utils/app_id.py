@@ -2,7 +2,7 @@
 from dataclasses import dataclass
 
 
-@dataclass(frozen=True, slots=True)
+@dataclass(frozen=True)
 class SteamGame:
     app_id: int
     name: str
