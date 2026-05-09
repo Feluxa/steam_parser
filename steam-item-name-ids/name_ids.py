@@ -34,6 +34,9 @@ SAVE_EVERY_ITEMS = 25
 MAX_RETRIES = 8
 SEARCH_DELAY_SECONDS = 2.5
 ITEM_DELAY_SECONDS = 1.5
+MODE_COLLECT = "collect"
+MODE_CHECK = "check"
+MODE_FILL_MISSING = "fill-missing"
 
 # Get запрос на https://steamcommunity.com/market/search/render/
 async def fetch_json(session: aiohttp.ClientSession, url: str, params: dict):
@@ -196,17 +199,38 @@ def save_state(path: Path, *, next_start: int, processed_count: int) -> None:
     )
 
 
-async def main(game: SteamGame, limit: int, reset_state: bool):
+def save_missing(path: Path, names: list[str]) -> None:
+    path.write_text(
+        json.dumps(sorted(set(names), key=str.casefold), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def load_missing(path: Path) -> list[str]:
+    if not path.exists():
+        return []
+
+    data = json.loads(path.read_text(encoding="utf-8"))
+    if isinstance(data, list):
+        return [str(name) for name in data]
+
+    return []
+
+
+async def main(game: SteamGame, limit: int, reset_state: bool, mode: str):
     output = Path(f"steam-item-name-ids/dump/{game.name}.json")
-    state_path = Path(f"steam-item-name-ids/dump/{game.name}_state.json")
+    state_path = Path(f"steam-item-name-ids/dump/{game.name}_{mode}_state.json")
+    missing_path = Path(f"steam-item-name-ids/dump/{game.name}_missing.json")
     output.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"Selected game: {game.name}, app_id: {game.app_id}")
+    print(f"Mode: {mode}")
     print(f"Output file: {output}")
     print(f"State file: {state_path}")
 
     result = load_dump(output)
     state = {"next_start": 0, "processed_count": 0} if reset_state else load_state(state_path)
+    missing_names = [] if reset_state else load_missing(missing_path)
 
     print(f"Already saved items: {len(result)}")
     print(f"Resume from market start: {state['next_start']}")
@@ -241,6 +265,12 @@ async def main(game: SteamGame, limit: int, reset_state: bool):
                     print(f"Skip existing: {name}")
                     continue
 
+                missing_names.append(name)
+
+                if mode == MODE_CHECK:
+                    print(f"Missing: {name}")
+                    continue
+
                 try:
                     item_nameid = await get_item_nameid(session, app_id=game.app_id, market_hash_name=name)
                 except Exception as error:
@@ -268,18 +298,26 @@ async def main(game: SteamGame, limit: int, reset_state: bool):
             start += len(names)
             save_dump(output, result)
             save_state(state_path, next_start=start, processed_count=processed_count)
+            save_missing(missing_path, missing_names)
             await asyncio.sleep(SEARCH_DELAY_SECONDS + random.uniform(0.5, 2.0))
     
     save_dump(output, result)
     save_state(state_path, next_start=start, processed_count=processed_count)
+    save_missing(missing_path, missing_names)
+    print(f"Missing names saved: {missing_path}, count: {len(set(missing_names))}")
 
 def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("--limit", type=int, default=None)
     parser.add_argument("--reset-state", action="store_true")
+    parser.add_argument(
+        "--mode",
+        choices=[MODE_COLLECT, MODE_CHECK, MODE_FILL_MISSING],
+        default=MODE_COLLECT,
+    )
     return parser.parse_args()
 
 if __name__ == "__main__":
     args = parse_args()
     selected_game = choose_game()
-    asyncio.run(main(game=selected_game, limit=args.limit, reset_state=args.reset_state))
+    asyncio.run(main(game=selected_game, limit=args.limit, reset_state=args.reset_state, mode=args.mode))
