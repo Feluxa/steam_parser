@@ -1,0 +1,85 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: steam_orders_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: steam_orders
+      POSTGRES_USER: steam_orders
+      POSTGRES_PASSWORD: steam_orders
+    ports:
+      - "15432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U steam_orders -d steam_orders"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  init:
+    build:
+      context: ..
+      dockerfile: orders/Dockerfile
+    container_name: steam_orders_init
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: steam_orders
+      POSTGRES_USER: steam_orders
+      POSTGRES_PASSWORD: steam_orders
+    command: python init.py
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  api:
+    build:
+      context: ..
+      dockerfile: orders/Dockerfile
+    container_name: steam_orders_api
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: steam_orders
+      POSTGRES_USER: steam_orders
+      POSTGRES_PASSWORD: steam_orders
+    command: uvicorn api:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  frontend:
+    build:
+      context: ./frontend
+    container_name: steam_orders_frontend
+    restart: unless-stopped
+    environment:
+      VITE_API_URL: http://localhost:8000
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+  loop:
+    build:
+      context: ..
+      dockerfile: orders/Dockerfile
+    container_name: steam_orders_loop
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: steam_orders
+      POSTGRES_USER: steam_orders
+      POSTGRES_PASSWORD: steam_orders
+    command: python loop.py
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+volumes:
+  postgres_data:
