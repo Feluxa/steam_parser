@@ -230,12 +230,53 @@ async def main(game: SteamGame, limit: int, reset_state: bool, mode: str):
 
     result = load_dump(output)
     state = {"next_start": 0, "processed_count": 0} if reset_state else load_state(state_path)
-    missing_names = [] if reset_state else load_missing(missing_path)
+    missing_names = load_missing(missing_path)
 
     print(f"Already saved items: {len(result)}")
     print(f"Resume from market start: {state['next_start']}")
 
     async with aiohttp.ClientSession(headers=HEADERS) as session:
+        if mode == MODE_FILL_MISSING:
+            start_index = state["processed_count"]
+            names_to_fill = missing_names[start_index:]
+
+            if limit is not None:
+                names_to_fill = names_to_fill[:limit]
+
+            print(f"Missing items to fill: {len(names_to_fill)}")
+
+            for offset, name in enumerate(names_to_fill, start=1):
+                processed_count = start_index + offset
+
+                if name in result:
+                    print(f"Skip existing: {name}")
+                    save_state(state_path, next_start=0, processed_count=processed_count)
+                    continue
+
+                try:
+                    item_nameid = await get_item_nameid(session, app_id=game.app_id, market_hash_name=name)
+                except Exception as error:
+                    print(f"Failed: {name} | {error}")
+                    save_dump(output, result)
+                    save_state(state_path, next_start=0, processed_count=processed_count)
+                    continue
+
+                if item_nameid:
+                    result[name] = item_nameid
+                    print(f"{name}: {item_nameid}")
+
+                save_dump(output, result)
+                save_state(state_path, next_start=0, processed_count=processed_count)
+
+                if processed_count % SAVE_EVERY_ITEMS == 0:
+                    print(f"Progress saved: missing processed={processed_count}, total saved={len(result)}")
+
+                await asyncio.sleep(ITEM_DELAY_SECONDS + random.uniform(0.5, 2.0))
+
+            save_dump(output, result)
+            save_state(state_path, next_start=0, processed_count=start_index + len(names_to_fill))
+            return
+
         start = state["next_start"]
         total_count = None
         processed_count = state["processed_count"]
