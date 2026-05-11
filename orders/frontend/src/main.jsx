@@ -11,7 +11,9 @@ import {
   ArrowRight,
   ArrowUp,
   ChevronsUpDown,
+  Filter,
   RefreshCcw,
+  RotateCcw,
 } from "lucide-react";
 import "./styles.css";
 
@@ -75,6 +77,31 @@ const columns = [
   },
 ];
 
+const filterColumns = [
+  { id: "id", label: "ID", type: "number" },
+  { id: "name", label: "Name", type: "text" },
+  { id: "best_sell", label: "Best Sell", type: "number" },
+  { id: "best_buy", label: "Best Buy", type: "number" },
+  { id: "potential_profit_abs", label: "Profit", type: "number" },
+  { id: "potential_profit_percent", label: "Profit %", type: "number" },
+  { id: "liquidity", label: "Liquidity", type: "number" },
+  { id: "last_update", label: "Last Update", type: "datetime-local" },
+];
+
+function createEmptyFilters() {
+  return Object.fromEntries(
+    filterColumns.map((column) => [
+      column.id,
+      {
+        min: "",
+        max: "",
+        contains: "",
+        notNull: false,
+      },
+    ]),
+  );
+}
+
 function formatNumber(value) {
   if (value === null || value === undefined) {
     return "-";
@@ -106,6 +133,64 @@ function formatDate(value) {
 
 function getMarketUrl(name) {
   return `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}`;
+}
+
+function toApiDateTime(value) {
+  if (!value) {
+    return "";
+  }
+
+  return new Date(value).toISOString();
+}
+
+function normalizeFilterValue(value, type) {
+  if (value === "") {
+    return null;
+  }
+
+  if (type === "datetime-local") {
+    return toApiDateTime(value);
+  }
+
+  if (type === "number") {
+    return Number(value);
+  }
+
+  return value;
+}
+
+function buildApiFilters(filters) {
+  return filterColumns.reduce((result, column) => {
+    const filterValue = filters[column.id];
+    const apiFilter = {};
+
+    if (column.type === "text") {
+      if (filterValue.contains.trim()) {
+        apiFilter.contains = filterValue.contains.trim();
+      }
+    } else {
+      const min = normalizeFilterValue(filterValue.min, column.type);
+      const max = normalizeFilterValue(filterValue.max, column.type);
+
+      if (min !== null) {
+        apiFilter.min = min;
+      }
+
+      if (max !== null) {
+        apiFilter.max = max;
+      }
+    }
+
+    if (filterValue.notNull) {
+      apiFilter.not_null = true;
+    }
+
+    if (Object.keys(apiFilter).length > 0) {
+      result[column.id] = apiFilter;
+    }
+
+    return result;
+  }, {});
 }
 
 function MarketLink({ name }) {
@@ -181,6 +266,8 @@ function App() {
   const [page, setPage] = useState(1);
   const [pageSize, setPageSize] = useState(100);
   const [sort, setSort] = useState(null);
+  const [draftFilters, setDraftFilters] = useState(createEmptyFilters);
+  const [appliedFilters, setAppliedFilters] = useState(createEmptyFilters);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -195,19 +282,33 @@ function App() {
     () => items.length === pageSize && items.length > 0,
     [items.length, pageSize],
   );
+  const appliedFilterCount = useMemo(
+    () => Object.keys(buildApiFilters(appliedFilters)).length,
+    [appliedFilters],
+  );
 
   async function loadSkins(signal) {
-    const params = new URLSearchParams({
-      field: sort?.field ?? DEFAULT_SORT.field,
-      order_type: sort?.orderType ?? DEFAULT_SORT.orderType,
-      page: String(page),
-    });
+    const payload = {
+      page,
+      sort: {
+        field: sort?.field ?? DEFAULT_SORT.field,
+        order_type: sort?.orderType ?? DEFAULT_SORT.orderType,
+      },
+      filters: buildApiFilters(appliedFilters),
+    };
 
     setLoading(true);
     setError("");
 
     try {
-      const response = await fetch(`${API_URL}/skins?${params}`, { signal });
+      const response = await fetch(`${API_URL}/skins/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+        signal,
+      });
 
       if (!response.ok) {
         throw new Error(`API returned ${response.status}`);
@@ -230,10 +331,33 @@ function App() {
     loadSkins(controller.signal);
 
     return () => controller.abort();
-  }, [page, sort?.field, sort?.orderType]);
+  }, [page, sort?.field, sort?.orderType, appliedFilters]);
 
   function updateSort(field) {
     setSort((currentSort) => getNextSort(currentSort, field));
+    setPage(1);
+  }
+
+  function updateFilter(field, key, value) {
+    setDraftFilters((currentFilters) => ({
+      ...currentFilters,
+      [field]: {
+        ...currentFilters[field],
+        [key]: value,
+      },
+    }));
+  }
+
+  function applyFilters(event) {
+    event.preventDefault();
+    setAppliedFilters(draftFilters);
+    setPage(1);
+  }
+
+  function resetFilters() {
+    const emptyFilters = createEmptyFilters();
+    setDraftFilters(emptyFilters);
+    setAppliedFilters(emptyFilters);
     setPage(1);
   }
 
@@ -242,7 +366,10 @@ function App() {
       <section className="top-bar">
         <div>
           <h1>Steam Orders</h1>
-          <p>{pageSize} skins per page from Postgres</p>
+          <p>
+            {pageSize} skins per page from Postgres
+            {appliedFilterCount > 0 ? `, ${appliedFilterCount} filters active` : ""}
+          </p>
         </div>
 
         <button
@@ -256,6 +383,80 @@ function App() {
           <RefreshCcw size={18} />
         </button>
       </section>
+
+      <form className="filters-panel" onSubmit={applyFilters}>
+        <div className="filters-header">
+          <div className="filters-title">
+            <Filter size={17} />
+            Filters
+          </div>
+
+          <div className="filters-actions">
+            <button
+              className="secondary-button"
+              type="button"
+              onClick={resetFilters}
+              disabled={loading}
+            >
+              <RotateCcw size={16} />
+              Reset
+            </button>
+            <button className="primary-button" type="submit" disabled={loading}>
+              Apply
+            </button>
+          </div>
+        </div>
+
+        <div className="filters-grid">
+          {filterColumns.map((column) => {
+            const filterValue = draftFilters[column.id];
+
+            return (
+              <div className="filter-row" key={column.id}>
+                <label className="filter-label" htmlFor={`${column.id}-min`}>
+                  {column.label}
+                </label>
+
+                {column.type === "text" ? (
+                  <input
+                    id={`${column.id}-contains`}
+                    type="text"
+                    value={filterValue.contains}
+                    onChange={(event) => updateFilter(column.id, "contains", event.target.value)}
+                    placeholder="Contains"
+                  />
+                ) : (
+                  <div className="range-inputs">
+                    <input
+                      id={`${column.id}-min`}
+                      type={column.type}
+                      value={filterValue.min}
+                      onChange={(event) => updateFilter(column.id, "min", event.target.value)}
+                      placeholder="Min"
+                    />
+                    <input
+                      id={`${column.id}-max`}
+                      type={column.type}
+                      value={filterValue.max}
+                      onChange={(event) => updateFilter(column.id, "max", event.target.value)}
+                      placeholder="Max"
+                    />
+                  </div>
+                )}
+
+                <label className="not-null-control">
+                  <input
+                    type="checkbox"
+                    checked={filterValue.notNull}
+                    onChange={(event) => updateFilter(column.id, "notNull", event.target.checked)}
+                  />
+                  Not null
+                </label>
+              </div>
+            );
+          })}
+        </div>
+      </form>
 
       {error ? (
         <div className="status status-error">
