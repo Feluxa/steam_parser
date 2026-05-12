@@ -28,6 +28,7 @@ services:
       POSTGRES_DB: steam_orders
       POSTGRES_USER: steam_orders
       POSTGRES_PASSWORD: steam_orders
+      EXCLUDE_NON_WEAPON_ITEMS: "true"
     command: python init.py
     depends_on:
       postgres:
@@ -76,6 +77,7 @@ services:
       POSTGRES_DB: steam_orders
       POSTGRES_USER: steam_orders
       POSTGRES_PASSWORD: steam_orders
+      EXCLUDE_NON_WEAPON_ITEMS: "true"
     command: python loop.py
     depends_on:
       init:

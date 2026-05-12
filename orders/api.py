@@ -28,14 +28,11 @@ ALLOWED_FIELDS = {
 }
 ALLOWED_ORDER_TYPES = {"asc", "desc"}
 FILTERABLE_FIELDS = {
-    "id": {"min", "max", "not_null"},
     "name": {"contains", "not_null"},
     "best_sell": {"min", "max", "not_null"},
-    "best_buy": {"min", "max", "not_null"},
     "potential_profit_abs": {"min", "max", "not_null"},
     "potential_profit_percent": {"min", "max", "not_null"},
     "liquidity": {"min", "max", "not_null"},
-    "last_update": {"min", "max", "not_null"},
 }
 
 app = FastAPI()

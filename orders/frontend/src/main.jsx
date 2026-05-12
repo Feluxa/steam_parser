@@ -26,11 +26,6 @@ const DEFAULT_SORT = {
 
 const columns = [
   {
-    accessorKey: "id",
-    header: "ID",
-    meta: { align: "right" },
-  },
-  {
     accessorKey: "name",
     header: "Name",
     cell: ({ getValue }) => <MarketLink name={getValue()} />,
@@ -78,14 +73,11 @@ const columns = [
 ];
 
 const filterColumns = [
-  { id: "id", label: "ID", type: "number" },
   { id: "name", label: "Name", type: "text" },
-  { id: "best_sell", label: "Best Sell", type: "number" },
-  { id: "best_buy", label: "Best Buy", type: "number" },
+  { id: "best_sell", label: "Price", type: "number" },
   { id: "potential_profit_abs", label: "Profit", type: "number" },
   { id: "potential_profit_percent", label: "Profit %", type: "number" },
   { id: "liquidity", label: "Liquidity", type: "number" },
-  { id: "last_update", label: "Last Update", type: "datetime-local" },
 ];
 
 function createEmptyFilters() {
@@ -135,21 +127,9 @@ function getMarketUrl(name) {
   return `https://steamcommunity.com/market/listings/730/${encodeURIComponent(name)}`;
 }
 
-function toApiDateTime(value) {
-  if (!value) {
-    return "";
-  }
-
-  return new Date(value).toISOString();
-}
-
 function normalizeFilterValue(value, type) {
   if (value === "") {
     return null;
-  }
-
-  if (type === "datetime-local") {
-    return toApiDateTime(value);
   }
 
   if (type === "number") {

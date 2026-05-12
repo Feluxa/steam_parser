@@ -4,6 +4,8 @@ from pathlib import Path
 
 import psycopg
 
+from item_filters import EXCLUDE_NON_WEAPON_ITEMS, should_parse_item
+
 
 BASE_DIR = Path(__file__).resolve().parents[1]
 CS2_FILE = BASE_DIR / "steam-item-name-ids" / "dump" / "cs2.json"
@@ -13,7 +15,14 @@ POSTGRES_PORT = os.getenv("POSTGRES_PORT", "15432")
 POSTGRES_DB = os.getenv("POSTGRES_DB", "steam_orders")
 POSTGRES_USER = os.getenv("POSTGRES_USER", "steam_orders")
 POSTGRES_PASSWORD = os.getenv("POSTGRES_PASSWORD", "steam_orders")
-SKIN_SUBSTRING = "M4A1-S"
+WEAPON_SUBSTRINGS = (
+    "M4A1-S",
+    "M4A4",
+    "AK-47",
+    "Desert Eagle",
+    "Glock-18",
+    "USP-S",
+)
 
 
 def load_skins() -> list[tuple[int, str]]:
@@ -23,7 +32,8 @@ def load_skins() -> list[tuple[int, str]]:
     return [
         (item_id, name)
         for name, item_id in items.items()
-        if SKIN_SUBSTRING in name
+        if any(weapon in name for weapon in WEAPON_SUBSTRINGS)
+        and should_parse_item(name)
     ]
 
 
@@ -63,6 +73,22 @@ def insert_skins(connection: psycopg.Connection, skins: list[tuple[int, str]]) -
         )
 
 
+def prune_excluded_skins(connection: psycopg.Connection) -> int:
+    if not EXCLUDE_NON_WEAPON_ITEMS:
+        return 0
+
+    rows = connection.execute("SELECT id, name FROM skins").fetchall()
+    excluded_ids = [(row[0],) for row in rows if not should_parse_item(row[1])]
+
+    if not excluded_ids:
+        return 0
+
+    with connection.cursor() as cursor:
+        cursor.executemany("DELETE FROM skins WHERE id = %s", excluded_ids)
+
+    return len(excluded_ids)
+
+
 def table_exists(connection: psycopg.Connection) -> bool:
     result = connection.execute(
         """
@@ -86,11 +112,16 @@ def main() -> None:
         user=POSTGRES_USER,
         password=POSTGRES_PASSWORD,
     ) as connection:
+        skins = load_skins()
         if table_exists(connection):
+            deleted_count = prune_excluded_skins(connection)
+            insert_skins(connection, skins)
             print("Table skins already exists, init skipped")
+            print(f"Inserted or updated {len(skins)} skins")
+            if deleted_count:
+                print(f"Deleted {deleted_count} excluded skins")
             return
 
-        skins = load_skins()
         create_table(connection)
         insert_skins(connection, skins)
 

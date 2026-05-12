@@ -10,6 +10,8 @@ from urllib.request import urlopen
 import psycopg
 from psycopg.rows import dict_row
 
+from item_filters import should_parse_item
+
 
 POSTGRES_HOST = os.getenv("POSTGRES_HOST", "localhost")
 POSTGRES_PORT = os.getenv("POSTGRES_PORT", "15432")
@@ -37,14 +39,19 @@ def get_connection() -> psycopg.Connection:
 
 
 def get_oldest_skin(connection: psycopg.Connection) -> Optional[dict]:
-    return connection.execute(
+    skins = connection.execute(
         """
         SELECT id, name
         FROM skins
         ORDER BY last_update ASC NULLS FIRST, id ASC
-        LIMIT 1
         """
-    ).fetchone()
+    ).fetchall()
+
+    for skin in skins:
+        if should_parse_item(skin["name"]):
+            return skin
+
+    return None
 
 
 def get_order_prices(item_nameid: int) -> dict[str, Optional[str]]:
