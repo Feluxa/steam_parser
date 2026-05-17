@@ -46,6 +46,16 @@ services:
       POSTGRES_DB: steam_orders
       POSTGRES_USER: steam_orders
       POSTGRES_PASSWORD: steam_orders
+      DMARKET_PUBLIC_KEY: ${DMARKET_PUBLIC_KEY:-}
+      DMARKET_SECRET_KEY: ${DMARKET_SECRET_KEY:-}
+      MARKETCSGO_API_KEY: ${MARKETCSGO_API_KEY:-}
+      LOOTFARM_BASE_URL: ${LOOTFARM_BASE_URL:-https://loot.farm}
+      MARKETRUST_BASE_URL: ${MARKETRUST_BASE_URL:-https://rust.tm}
+      MARKETTF2_BASE_URL: ${MARKETTF2_BASE_URL:-https://tf2.tm}
+      ARBITRAGE_DMARKET_FEE: ${ARBITRAGE_DMARKET_FEE:-0.02}
+      ARBITRAGE_MARKETCSGO_FEE: ${ARBITRAGE_MARKETCSGO_FEE:-0.05}
+      ARBITRAGE_LOOTFARM_FEE: ${ARBITRAGE_LOOTFARM_FEE:-0.05}
+      ARBITRAGE_REQUEST_TIMEOUT: ${ARBITRAGE_REQUEST_TIMEOUT:-12}
     command: uvicorn api:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
@@ -78,7 +88,45 @@ services:
       POSTGRES_USER: steam_orders
       POSTGRES_PASSWORD: steam_orders
       EXCLUDE_NON_WEAPON_ITEMS: "true"
+      PYTHONUNBUFFERED: "1"
     command: python loop.py
+    depends_on:
+      init:
+        condition: service_completed_successfully
+
+  arbitrage_loop:
+    build:
+      context: ..
+      dockerfile: orders/Dockerfile
+    container_name: steam_orders_arbitrage_loop
+    restart: unless-stopped
+    environment:
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: 5432
+      POSTGRES_DB: steam_orders
+      POSTGRES_USER: steam_orders
+      POSTGRES_PASSWORD: steam_orders
+      DMARKET_PUBLIC_KEY: ${DMARKET_PUBLIC_KEY:-}
+      DMARKET_SECRET_KEY: ${DMARKET_SECRET_KEY:-}
+      MARKETCSGO_API_KEY: ${MARKETCSGO_API_KEY:-}
+      LOOTFARM_BASE_URL: ${LOOTFARM_BASE_URL:-https://loot.farm}
+      MARKETRUST_BASE_URL: ${MARKETRUST_BASE_URL:-https://rust.tm}
+      MARKETTF2_BASE_URL: ${MARKETTF2_BASE_URL:-https://tf2.tm}
+      ARBITRAGE_DMARKET_FEE: ${ARBITRAGE_DMARKET_FEE:-0.02}
+      ARBITRAGE_MARKETCSGO_FEE: ${ARBITRAGE_MARKETCSGO_FEE:-0.05}
+      ARBITRAGE_LOOTFARM_FEE: ${ARBITRAGE_LOOTFARM_FEE:-0.05}
+      ARBITRAGE_REQUEST_TIMEOUT: ${ARBITRAGE_REQUEST_TIMEOUT:-20}
+      ARBITRAGE_REFRESH_DELAY: ${ARBITRAGE_REFRESH_DELAY:-60}
+      ARBITRAGE_REFRESH_GAME: ${ARBITRAGE_REFRESH_GAME:-cs2}
+      ARBITRAGE_REFRESH_GAMES: ${ARBITRAGE_REFRESH_GAMES:-cs2,rust,tf2}
+      ARBITRAGE_DMARKET_PAGE_LIMIT: ${ARBITRAGE_DMARKET_PAGE_LIMIT:-100}
+      ARBITRAGE_DMARKET_MAX_PAGES: ${ARBITRAGE_DMARKET_MAX_PAGES:-1000}
+      ARBITRAGE_DMARKET_PAGE_DELAY: ${ARBITRAGE_DMARKET_PAGE_DELAY:-1}
+      ARBITRAGE_DMARKET_TARGET_BATCH_SIZE: ${ARBITRAGE_DMARKET_TARGET_BATCH_SIZE:-100}
+      ARBITRAGE_DMARKET_TARGET_WRITE_CHUNK: ${ARBITRAGE_DMARKET_TARGET_WRITE_CHUNK:-10}
+      ARBITRAGE_DMARKET_TARGET_DELAY: ${ARBITRAGE_DMARKET_TARGET_DELAY:-0.3}
+      PYTHONUNBUFFERED: "1"
+    command: python arbitrage_loop.py
     depends_on:
       init:
         condition: service_completed_successfully

@@ -1,3 +1,5 @@
 psycopg[binary]>=3.2
 fastapi>=0.115
 uvicorn[standard]>=0.34
+httpx>=0.28
+PyNaCl>=1.5

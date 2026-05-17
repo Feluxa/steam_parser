@@ -95,6 +95,38 @@ button {
   flex: 0 0 auto;
 }
 
+.tabs {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 16px;
+  padding: 4px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.tab-button {
+  min-height: 34px;
+  padding: 0 13px;
+  border: 0;
+  border-radius: 6px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+}
+
+.tab-button:hover {
+  color: var(--text);
+  background: #f8fafc;
+}
+
+.active-tab {
+  color: var(--accent-dark);
+  background: #e6f4f1;
+  font-weight: 650;
+}
+
 .filters-panel {
   margin-bottom: 16px;
   padding: 14px;
@@ -234,6 +266,12 @@ button {
   border: 1px solid var(--warning-border);
 }
 
+.status-muted {
+  color: var(--muted);
+  background: #f8fafc;
+  border: 1px solid var(--border);
+}
+
 .table-wrap {
   position: relative;
   overflow: auto;
@@ -338,6 +376,11 @@ tbody tr:hover {
   font-weight: 650;
 }
 
+.lootfarm-limit-item {
+  color: var(--danger);
+  font-weight: 700;
+}
+
 .empty-state {
   height: 120px;
   color: var(--muted);
@@ -352,6 +395,168 @@ tbody tr:hover {
   color: var(--muted);
   background: rgba(255, 255, 255, 0.72);
   font-size: 15px;
+}
+
+.arbitrage-panel {
+  min-height: 260px;
+}
+
+.arbitrage-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.arbitrage-header h2 {
+  margin: 0;
+  color: var(--text);
+  font-size: 22px;
+  line-height: 1.25;
+  letter-spacing: 0;
+}
+
+.arbitrage-filters {
+  display: grid;
+  grid-template-columns: minmax(130px, 0.7fr) minmax(170px, 0.9fr) minmax(200px, 1.1fr) auto minmax(170px, 0.9fr) minmax(200px, 1.1fr);
+  align-items: end;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding: 14px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+}
+
+.select-control {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+}
+
+.select-control span {
+  color: #344054;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.select-control select {
+  width: 100%;
+  min-height: 38px;
+  min-width: 0;
+  padding: 0 34px 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.select-control select:focus {
+  outline: 2px solid rgba(15, 118, 110, 0.18);
+  border-color: var(--accent);
+}
+
+.mode-group {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 38px;
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.mode-group legend {
+  margin-bottom: 7px;
+  color: #344054;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.checkbox-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  color: var(--text);
+  font-size: 14px;
+}
+
+.checkbox-control input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.fixed-mode {
+  display: inline-flex;
+  align-items: center;
+  min-height: 38px;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 650;
+}
+
+.switch-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--text);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.switch-button:hover {
+  border-color: #9aa8b5;
+  background: #f8fafc;
+}
+
+.toggle-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 38px;
+  padding: 0 12px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  color: var(--muted);
+  background: #ffffff;
+  cursor: pointer;
+}
+
+.toggle-control input {
+  width: 15px;
+  height: 15px;
+  accent-color: var(--accent);
+}
+
+.toggle-control span {
+  color: var(--text);
+}
+
+.toggle-control strong {
+  color: var(--accent-dark);
+  font-size: 13px;
+}
+
+.arbitrage-table-wrap {
+  margin-top: 0;
+}
+
+.lootfarm-overstock-filter {
+  align-self: end;
+}
+
+.arbitrage-filter-panel {
+  margin-bottom: 16px;
 }
 
 .pagination {
@@ -407,5 +612,18 @@ tbody tr:hover {
 
   .filters-grid {
     grid-template-columns: 1fr;
+  }
+
+  .arbitrage-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .arbitrage-filters {
+    grid-template-columns: 1fr;
+  }
+
+  .switch-button {
+    width: 100%;
   }
 }

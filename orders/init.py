@@ -60,6 +60,64 @@ def create_table(connection: psycopg.Connection) -> None:
     )
 
 
+def create_arbitrage_tables(connection: psycopg.Connection) -> None:
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS marketplace_items (
+            service TEXT NOT NULL,
+            game TEXT NOT NULL,
+            name TEXT NOT NULL,
+            normal_price NUMERIC(18, 6),
+            order_price NUMERIC(18, 6),
+            normal_count INTEGER,
+            order_count INTEGER,
+            last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            normal_last_update TIMESTAMPTZ,
+            order_last_update TIMESTAMPTZ,
+            error TEXT,
+            PRIMARY KEY (service, game, name)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_marketplace_items_name
+        ON marketplace_items (game, name)
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_marketplace_items_last_update
+        ON marketplace_items (last_update)
+        """
+    )
+    connection.execute(
+        """
+        CREATE TABLE IF NOT EXISTS marketplace_prices (
+            service TEXT NOT NULL,
+            price_type TEXT NOT NULL,
+            name TEXT NOT NULL,
+            price NUMERIC(18, 6),
+            last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            error TEXT,
+            PRIMARY KEY (service, price_type, name)
+        )
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_marketplace_prices_last_update
+        ON marketplace_prices (last_update)
+        """
+    )
+    connection.execute(
+        """
+        CREATE INDEX IF NOT EXISTS idx_marketplace_prices_name
+        ON marketplace_prices (name)
+        """
+    )
+
+
 def insert_skins(connection: psycopg.Connection, skins: list[tuple[int, str]]) -> None:
     with connection.cursor() as cursor:
         cursor.executemany(
@@ -112,6 +170,7 @@ def main() -> None:
         user=POSTGRES_USER,
         password=POSTGRES_PASSWORD,
     ) as connection:
+        create_arbitrage_tables(connection)
         skins = load_skins()
         if table_exists(connection):
             deleted_count = prune_excluded_skins(connection)
