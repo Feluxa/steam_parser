@@ -84,6 +84,8 @@ def create_tables(connection: psycopg.Connection) -> None:
             name TEXT NOT NULL,
             normal_price NUMERIC(18, 6),
             order_price NUMERIC(18, 6),
+            normal_price_rub NUMERIC(18, 6),
+            order_price_rub NUMERIC(18, 6),
             normal_count INTEGER,
             order_count INTEGER,
             last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -94,6 +96,8 @@ def create_tables(connection: psycopg.Connection) -> None:
         )
         """
     )
+    connection.execute("ALTER TABLE marketplace_items ADD COLUMN IF NOT EXISTS normal_price_rub NUMERIC(18, 6)")
+    connection.execute("ALTER TABLE marketplace_items ADD COLUMN IF NOT EXISTS order_price_rub NUMERIC(18, 6)")
     connection.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_marketplace_items_name
@@ -134,6 +138,24 @@ def merge_order_item(items: MarketItem, name: str, price: Decimal | None) -> Non
     current_price = current["order_price"]
     if current_price is None or price > current_price:
         current["order_price"] = price
+
+
+def merge_market_rub_item(items: MarketItem, name: str, price: Decimal | None, price_type: str) -> None:
+    if not name or price is None:
+        return
+
+    current = items.setdefault(
+        name,
+        {"normal_price": None, "order_price": None, "normal_count": 0, "order_count": 0},
+    )
+    column = "normal_price_rub" if price_type == "normal" else "order_price_rub"
+    current_price = current.get(column)
+    if current_price is None:
+        current[column] = price
+    elif price_type == "normal" and price < current_price:
+        current[column] = price
+    elif price_type == "orders" and price > current_price:
+        current[column] = price
 
 
 def extract_dmarket_listing_name(item: dict[str, Any]) -> str | None:
@@ -212,6 +234,48 @@ async def fetch_marketcsgo_full_market(client: httpx.AsyncClient, game: str) -> 
             continue
 
         merge_order_item(items, name, extract_marketcsgo_order_price(raw_item))
+
+    normal_rub_response = await client.get(f"{market_base_url}/api/v2/prices/RUB.json")
+    normal_rub_response.raise_for_status()
+    normal_rub_payload = normal_rub_response.json()
+    normal_rub_raw_items = normal_rub_payload.get("items", normal_rub_payload) if isinstance(normal_rub_payload, dict) else normal_rub_payload
+    if isinstance(normal_rub_raw_items, dict):
+        normal_rub_iterable = normal_rub_raw_items.values()
+    elif isinstance(normal_rub_raw_items, list):
+        normal_rub_iterable = normal_rub_raw_items
+    else:
+        normal_rub_iterable = []
+
+    for raw_item in normal_rub_iterable:
+        if not isinstance(raw_item, dict):
+            continue
+
+        name = first_value(raw_item, ("market_hash_name", "market_name", "hash_name", "name"))
+        if not name:
+            continue
+
+        merge_market_rub_item(items, name, extract_marketcsgo_price(raw_item), "normal")
+
+    order_rub_response = await client.get(f"{market_base_url}/api/v2/prices/orders/RUB.json")
+    order_rub_response.raise_for_status()
+    order_rub_payload = order_rub_response.json()
+    order_rub_raw_items = order_rub_payload.get("items", order_rub_payload) if isinstance(order_rub_payload, dict) else order_rub_payload
+    if isinstance(order_rub_raw_items, dict):
+        order_rub_iterable = order_rub_raw_items.values()
+    elif isinstance(order_rub_raw_items, list):
+        order_rub_iterable = order_rub_raw_items
+    else:
+        order_rub_iterable = []
+
+    for raw_item in order_rub_iterable:
+        if not isinstance(raw_item, dict):
+            continue
+
+        name = first_value(raw_item, ("market_hash_name", "market_name", "hash_name", "name"))
+        if not name:
+            continue
+
+        merge_market_rub_item(items, name, extract_marketcsgo_order_price(raw_item), "orders")
 
     return items
 
@@ -372,6 +436,8 @@ def upsert_market_items(
             name,
             values.get("normal_price"),
             values.get("order_price"),
+            values.get("normal_price_rub"),
+            values.get("order_price_rub"),
             values.get("normal_count"),
             values.get("order_count"),
             error,
@@ -380,9 +446,11 @@ def upsert_market_items(
     ]
 
     normal_price_set = "normal_price = EXCLUDED.normal_price," if update_normal else "normal_price = marketplace_items.normal_price,"
+    normal_price_rub_set = "normal_price_rub = EXCLUDED.normal_price_rub," if update_normal else "normal_price_rub = marketplace_items.normal_price_rub,"
     normal_count_set = "normal_count = EXCLUDED.normal_count," if update_normal else "normal_count = marketplace_items.normal_count,"
     normal_time_set = "normal_last_update = NOW()," if update_normal else "normal_last_update = marketplace_items.normal_last_update,"
     order_price_set = "order_price = EXCLUDED.order_price," if update_orders else "order_price = marketplace_items.order_price,"
+    order_price_rub_set = "order_price_rub = EXCLUDED.order_price_rub," if update_orders else "order_price_rub = marketplace_items.order_price_rub,"
     order_count_set = "order_count = EXCLUDED.order_count," if update_orders else "order_count = marketplace_items.order_count,"
     order_time_set = "order_last_update = NOW()," if update_orders else "order_last_update = marketplace_items.order_last_update,"
     inserted_normal_time = "NOW()" if update_normal else "NULL"
@@ -395,6 +463,8 @@ def upsert_market_items(
             name,
             normal_price,
             order_price,
+            normal_price_rub,
+            order_price_rub,
             normal_count,
             order_count,
             last_update,
@@ -410,6 +480,8 @@ def upsert_market_items(
             %s,
             %s,
             %s,
+            %s,
+            %s,
             NOW(),
             {inserted_normal_time},
             {inserted_order_time},
@@ -418,6 +490,8 @@ def upsert_market_items(
         ON CONFLICT (service, game, name) DO UPDATE SET
             {normal_price_set}
             {order_price_set}
+            {normal_price_rub_set}
+            {order_price_rub_set}
             {normal_count_set}
             {order_count_set}
             {normal_time_set}

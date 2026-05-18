@@ -147,6 +147,15 @@ function formatUsd(value) {
   }).format(Number(value));
 }
 
+function formatUsdRub(usdValue, rubValue) {
+  const usd = formatUsd(usdValue);
+  if (rubValue === null || rubValue === undefined) {
+    return usd;
+  }
+
+  return `${usd} / ${formatRub(rubValue)}`;
+}
+
 function formatDate(value) {
   if (!value) {
     return "-";
@@ -1019,9 +1028,9 @@ function App() {
                       <td className={`name-cell ${lootfarmLimitPrice ? "lootfarm-limit-item" : ""}`}>
                         {item.name}
                       </td>
-                      <td className="align-right">{formatUsd(item.buy_price)}</td>
+                      <td className="align-right">{formatUsdRub(item.buy_price, item.buy_price_rub)}</td>
                       <td><MarketplaceLink href={item.buy_url} /></td>
-                      <td className="align-right">{formatUsd(item.sell_price)}</td>
+                      <td className="align-right">{formatUsdRub(item.sell_price, item.sell_price_rub)}</td>
                       <td><MarketplaceLink href={item.sell_url} /></td>
                       <td className="align-right">{formatLootfarmStock(item)}</td>
                       <td className="align-right">{formatUsd(item.net_sell_price)}</td>

@@ -945,6 +945,10 @@ def fetch_cached_arbitrage_rows(
         "normal": "normal_price",
         "orders": "order_price",
     }
+    price_rub_column = {
+        "normal": "normal_price_rub",
+        "orders": "order_price_rub",
+    }
     sell_fee = SERVICE_FEES[second_service]
     select_queries = []
     values: list[Any] = []
@@ -953,16 +957,20 @@ def fetch_cached_arbitrage_rows(
         for sell_type in sorted(second_price_types):
             buy_column = price_column[buy_type]
             sell_column = price_column[sell_type]
+            buy_rub_column = price_rub_column[buy_type]
+            sell_rub_column = price_rub_column[sell_type]
             select_queries.append(
                 f"""
                 SELECT
                     first_items.name,
                     %s AS buy_type,
                     first_items.{buy_column} AS buy_price,
+                    first_items.{buy_rub_column} AS buy_price_rub,
                     first_items.normal_count AS buy_normal_count,
                     first_items.order_count AS buy_order_count,
                     %s AS sell_type,
                     second_items.{sell_column} AS sell_price,
+                    second_items.{sell_rub_column} AS sell_price_rub,
                     second_items.normal_count AS sell_normal_count,
                     second_items.order_count AS sell_order_count,
                     second_items.{sell_column} * (1 - %s) AS net_sell_price,
@@ -1039,6 +1047,7 @@ def fetch_cached_arbitrage_rows(
             "buy_service_label": SERVICE_LABELS[first_service],
             "buy_type": row["buy_type"],
             "buy_price": decimal_to_float(row["buy_price"]),
+            "buy_price_rub": decimal_to_float(row["buy_price_rub"]),
             "buy_url": get_marketplace_item_url(first_service, row["name"], game),
             "buy_overstock": (
                 first_service == "lootfarm"
@@ -1049,11 +1058,13 @@ def fetch_cached_arbitrage_rows(
             "sell_service_label": SERVICE_LABELS[second_service],
             "sell_type": row["sell_type"],
             "raw_sell_price": decimal_to_float(row["sell_price"]),
+            "raw_sell_price_rub": decimal_to_float(row["sell_price_rub"]),
             "sell_price": decimal_to_float(
                 row["net_sell_price"]
                 if second_service == "lootfarm" and row["sell_type"] == "orders"
                 else row["sell_price"]
             ),
+            "sell_price_rub": decimal_to_float(row["sell_price_rub"]),
             "sell_url": get_marketplace_item_url(second_service, row["name"], game),
             "sell_overstock": (
                 second_service == "lootfarm"

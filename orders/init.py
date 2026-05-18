@@ -69,6 +69,8 @@ def create_arbitrage_tables(connection: psycopg.Connection) -> None:
             name TEXT NOT NULL,
             normal_price NUMERIC(18, 6),
             order_price NUMERIC(18, 6),
+            normal_price_rub NUMERIC(18, 6),
+            order_price_rub NUMERIC(18, 6),
             normal_count INTEGER,
             order_count INTEGER,
             last_update TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -79,6 +81,8 @@ def create_arbitrage_tables(connection: psycopg.Connection) -> None:
         )
         """
     )
+    connection.execute("ALTER TABLE marketplace_items ADD COLUMN IF NOT EXISTS normal_price_rub NUMERIC(18, 6)")
+    connection.execute("ALTER TABLE marketplace_items ADD COLUMN IF NOT EXISTS order_price_rub NUMERIC(18, 6)")
     connection.execute(
         """
         CREATE INDEX IF NOT EXISTS idx_marketplace_items_name
