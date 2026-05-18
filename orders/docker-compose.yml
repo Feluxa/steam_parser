@@ -76,6 +76,8 @@ services:
       - api
 
   loop:
+    profiles:
+      - steam-parser
     build:
       context: ..
       dockerfile: orders/Dockerfile

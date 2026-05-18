@@ -1048,7 +1048,12 @@ def fetch_cached_arbitrage_rows(
             "sell_service": second_service,
             "sell_service_label": SERVICE_LABELS[second_service],
             "sell_type": row["sell_type"],
-            "sell_price": decimal_to_float(row["sell_price"]),
+            "raw_sell_price": decimal_to_float(row["sell_price"]),
+            "sell_price": decimal_to_float(
+                row["net_sell_price"]
+                if second_service == "lootfarm" and row["sell_type"] == "orders"
+                else row["sell_price"]
+            ),
             "sell_url": get_marketplace_item_url(second_service, row["name"], game),
             "sell_overstock": (
                 second_service == "lootfarm"
@@ -1057,6 +1062,11 @@ def fetch_cached_arbitrage_rows(
             ),
             "lootfarm_stock_remaining": (
                 max(0, int(row["sell_order_count"] or 0))
+                if second_service == "lootfarm" and row["sell_type"] == "orders"
+                else None
+            ),
+            "lootfarm_stock_have": (
+                max(0, int(row["sell_normal_count"] or 0))
                 if second_service == "lootfarm" and row["sell_type"] == "orders"
                 else None
             ),

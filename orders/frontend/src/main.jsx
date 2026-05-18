@@ -1101,15 +1101,13 @@ function isLootfarmLimitPrice(item) {
 }
 
 function formatLootfarmStock(item) {
-  if (item.lootfarm_stock_remaining === null || item.lootfarm_stock_remaining === undefined) {
+  if (item.lootfarm_stock_limit === null || item.lootfarm_stock_limit === undefined) {
     return "-";
   }
 
-  if (item.lootfarm_stock_limit === null || item.lootfarm_stock_limit === undefined) {
-    return String(item.lootfarm_stock_remaining);
-  }
+  const have = item.lootfarm_stock_have ?? 0;
 
-  return `${item.lootfarm_stock_remaining}/${item.lootfarm_stock_limit}`;
+  return `${have}/${item.lootfarm_stock_limit}`;
 }
 
 function getArbitragePriceTypes(settings, side) {
